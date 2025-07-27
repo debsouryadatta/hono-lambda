@@ -6,6 +6,7 @@ import { logger } from 'hono/logger';
 import { prettyJSON } from 'hono/pretty-json';
 import userRoutes from './routes/users';
 import postRoutes from './routes/posts';
+import testRoutes from './routes/tests';
 
 // Create Hono app
 const app = new Hono();
@@ -31,6 +32,7 @@ app.get('/', (c) => {
 // API routes
 app.route('/api/users', userRoutes);
 app.route('/api/posts', postRoutes);
+app.route('/api/tests', testRoutes);
 
 // 404 handler
 app.notFound((c) => {
