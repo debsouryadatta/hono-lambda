@@ -1,12 +1,14 @@
 import { Hono } from 'hono';
 import { serve } from "@hono/node-server";
-import { handle } from 'hono/aws-lambda';
+import { handle as handleHttpEvents, LambdaEvent } from 'hono/aws-lambda';
+import { APIGatewayProxyResult, Context } from 'aws-lambda';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { prettyJSON } from 'hono/pretty-json';
 import userRoutes from './routes/users';
 import postRoutes from './routes/posts';
 import testRoutes from './routes/tests';
+import { queueConfig, SupportedEvent } from './queue-handler';
 
 // Create Hono app
 const app = new Hono();
@@ -46,7 +48,29 @@ app.onError((err, c) => {
 });
 
 // Export the handler for AWS Lambda
-export const handler = handle(app); 
+export const handler = async (
+  event: SupportedEvent,
+  context: Context
+): Promise<APIGatewayProxyResult> => {
+  
+  // Handle SQS events
+  if ("Records" in event && event.Records[0]?.eventSource === "aws:sqs") {
+    const queueName = event.Records[0].eventSourceARN.split(":").pop();
+    console.log("Queue Name:", queueName);
+    await queueConfig[queueName as keyof typeof queueConfig].handler(event);
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ message: "Event processed successfully" }),
+    };
+  }
+
+  console.log("Event received:", JSON.stringify(event));
+
+  // Handle EventBridge scheduled events
+
+  // Handle HTTP API events
+  return handleHttpEvents(app)(event as LambdaEvent, context);
+};
 
 if (process.env.NODE_ENV !== "production") {
   const port = 3000;

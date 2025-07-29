@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
-import { eq, desc } from 'drizzle-orm';
-import { posts, users, type Post, type NewPost } from '../db/schema';
-import { db } from '../db';
-import { sesClient } from '../lib/mail';
+import { sesClient } from '../lib/instance';
 import { SendEmailCommand } from '@aws-sdk/client-ses';
+import { SendMessageCommand } from "@aws-sdk/client-sqs";
+import { sqs } from "../lib/instance";
+import { pushToQueue } from '../queue-handler';
 
 const testRoutes = new Hono();
 
@@ -51,5 +51,24 @@ testRoutes.post('/send-mail', async (c) => {
       }
 });
 
+// Test SQS send message
+testRoutes.post('/send-sqs', async (c) => {
+    try {
+        const { message } = await c.req.json();
+    
+        const result = await pushToQueue("hono-lambda", message);
+        
+        return c.json({ 
+          status: 'success', 
+          messageId: result 
+        });
+      } catch (error) {
+        console.error('Error sending message to SQS:', error);
+        return c.json({ 
+          status: 'error', 
+          message: 'Failed to send message to SQS' 
+        }, 500);
+      }
+});
 
 export default testRoutes;
